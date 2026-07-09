@@ -16,8 +16,7 @@ void attachServos()
             servos[i].attach(
                 SERVO_PINS[i],
                 SERVO_MIN_US,
-                SERVO_MAX_US
-            );
+                SERVO_MAX_US);
         }
     }
 }
@@ -104,6 +103,76 @@ void moveServoClose(uint8_t index)
     }
 }
 
+void openSnake()
+{
+    // const uint8_t START_DELAY_STEPS = 5;
+
+    for (int globalStep = 0;
+         globalStep <= MOTION_STEPS + START_DELAY_STEPS * (NUM_SERVOS - 1);
+         globalStep++)
+    {
+        for (uint8_t s = 0; s < NUM_SERVOS; s++)
+        {
+            int localStep = globalStep - s * START_DELAY_STEPS;
+
+            if (localStep < 0)
+                continue;
+
+            if (localStep > MOTION_STEPS)
+                localStep = MOTION_STEPS;
+
+            float t = localStep / (float)MOTION_STEPS;
+            float ratio = 0.5f - 0.5f * cosf(PI * t);
+
+            // uint8_t servo = snakeOrderOpen[s];
+            uint8_t servo = snakeOrder[s];
+
+            int angle =
+                CLOSED_ANGLES[servo] +
+                OPEN_DELTA * ratio;
+
+            servos[servo].write(angle);
+        }
+
+        smartDelay(STEP_DELAY_MS);
+    }
+}
+
+void closeSnake()
+{
+    // const uint8_t START_DELAY_STEPS = 5;
+
+    for (int globalStep = 0;
+         globalStep <= MOTION_STEPS + START_DELAY_STEPS * (NUM_SERVOS - 1);
+         globalStep++)
+    {
+        for (uint8_t s = 0; s < NUM_SERVOS; s++)
+        {
+            int localStep = globalStep - s * START_DELAY_STEPS;
+
+            if (localStep < 0)
+                continue;
+
+            if (localStep > MOTION_STEPS)
+                localStep = MOTION_STEPS;
+
+            float t = 1.0f - localStep / (float)MOTION_STEPS;
+            float ratio = 0.5f - 0.5f * cosf(PI * t);
+
+            // uint8_t servo = snakeOrderClose[NUM_SERVOS - 1 - s];
+            uint8_t servo = snakeOrder[s];
+
+            int angle =
+                CLOSED_ANGLES[servo] +
+                OPEN_DELTA * ratio;
+
+            servos[servo].write(angle);
+        }
+
+        smartDelay(STEP_DELAY_MS);
+    }
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -140,22 +209,11 @@ void loop()
         return;
     }
 
-    // ---------------- ОТКРЫТИЕ ----------------
-
     Serial.println("Opening...");
 
     attachServos();
 
-    for (uint8_t i = 0; i < NUM_SERVOS && isRunning; i++)
-    {
-        moveServoOpen(snakeOrderOp[i]);
-    }
-
-    if (isRunning)
-    {
-        Serial.println("Opened");
-        smartDelay(DELAY_OPENED_MS);
-    }
+    openSnake();
 
     if (!isRunning)
     {
@@ -163,14 +221,18 @@ void loop()
         return;
     }
 
-    // ---------------- ЗАКРЫТИЕ ----------------
+    Serial.println("Opened");
+    smartDelay(DELAY_OPENED_MS);
+
+    if (!isRunning)
+    {
+        detachServos();
+        return;
+    }
 
     Serial.println("Closing...");
 
-    for (int8_t i = NUM_SERVOS - 1; i >= 0 && isRunning; i--)
-    {
-        moveServoClose(snakeOrderCl[i]);
-    }
+    closeSnake();
 
     detachServos();
 
