@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP32Servo.h>
 #include "config.h"
+#include <math.h>
 
 Servo servos[NUM_SERVOS];
 
@@ -10,11 +11,14 @@ void attachServos()
 {
     for (uint8_t i = 0; i < NUM_SERVOS; i++)
     {
-        servos[i].attach(
-            SERVO_PINS[i],
-            SERVO_MIN_US,
-            SERVO_MAX_US
-        );
+        if (!servos[i].attached())
+        {
+            servos[i].attach(
+                SERVO_PINS[i],
+                SERVO_MIN_US,
+                SERVO_MAX_US
+            );
+        }
     }
 }
 
@@ -68,7 +72,9 @@ void moveServoOpen(uint8_t index)
 {
     for (int step = 0; step <= MOTION_STEPS && isRunning; step++)
     {
-        float ratio = step / (float)MOTION_STEPS;
+        // float ratio = step / (float)MOTION_STEPS;
+        float t = step / (float)MOTION_STEPS;
+        float ratio = 0.5f - 0.5f * cosf(PI * t);
 
         int angle =
             CLOSED_ANGLES[index] +
@@ -84,7 +90,9 @@ void moveServoClose(uint8_t index)
 {
     for (int step = MOTION_STEPS; step >= 0 && isRunning; step--)
     {
-        float ratio = step / (float)MOTION_STEPS;
+        // float ratio = step / (float)MOTION_STEPS;
+        float t = step / (float)MOTION_STEPS;
+        float ratio = 0.5f - 0.5f * cosf(PI * t);
 
         int angle =
             CLOSED_ANGLES[index] +
@@ -132,16 +140,16 @@ void loop()
         return;
     }
 
+    // ---------------- ОТКРЫТИЕ ----------------
+
     Serial.println("Opening...");
 
     attachServos();
 
     for (uint8_t i = 0; i < NUM_SERVOS && isRunning; i++)
     {
-        moveServoOpen(i);
+        moveServoOpen(snakeOrderOp[i]);
     }
-
-    detachServos();
 
     if (isRunning)
     {
@@ -150,15 +158,18 @@ void loop()
     }
 
     if (!isRunning)
+    {
+        detachServos();
         return;
+    }
+
+    // ---------------- ЗАКРЫТИЕ ----------------
 
     Serial.println("Closing...");
 
-    attachServos();
-
-    for (uint8_t i = 0; i < NUM_SERVOS && isRunning; i++)
+    for (int8_t i = NUM_SERVOS - 1; i >= 0 && isRunning; i--)
     {
-        moveServoClose(i);
+        moveServoClose(snakeOrderCl[i]);
     }
 
     detachServos();
